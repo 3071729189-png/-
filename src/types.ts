@@ -6,10 +6,11 @@ export interface Word {
   proficiency: number;
   category?: string;
   isFavorite?: boolean;
+  isSelected?: boolean;
 }
 
 export interface Etymology {
-  components: { char: string; meaning: string }[];
+  components: { char: string; meaning: string; imageUrl?: string }[];
   culturalContext: string;
 }
 

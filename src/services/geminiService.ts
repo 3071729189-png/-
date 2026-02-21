@@ -1,4 +1,5 @@
 import { GoogleGenAI, Type } from "@google/genai";
+import { Word } from "../types";
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
@@ -56,7 +57,107 @@ export const geminiService = {
         }
       }
     });
-    return JSON.parse(response.text || "{}");
+    const data = JSON.parse(response.text || "{}");
+    
+    // For each component, generate a pictographic image
+    if (data.components) {
+      for (const comp of data.components) {
+        try {
+          const imgResponse = await ai.models.generateContent({
+            model: 'gemini-2.5-flash-image',
+            contents: {
+              parts: [{ text: `A simple, elegant pictographic illustration of the Chinese radical "${comp.char}" which means "${comp.meaning}". The style should be like a traditional ink wash painting or a clean modern icon that clearly shows the connection between the character's shape and its meaning.` }]
+            }
+          });
+          for (const part of imgResponse.candidates[0].content.parts) {
+            if (part.inlineData) {
+              comp.imageUrl = `data:image/png;base64,${part.inlineData.data}`;
+            }
+          }
+        } catch (e) {
+          console.error("Failed to generate image for radical", comp.char, e);
+        }
+      }
+    }
+    return data;
+  },
+
+  async getReviewDialogue(selectedWords: Word[]) {
+    const wordList = selectedWords.map(w => w.word).join(", ");
+    const response = await ai.models.generateContent({
+      model: "gemini-3-flash-preview",
+      contents: `Create a dialogue scenario between a virtual assistant named "小通" (Xiao Tong) and the user. 
+      The scenario should be a specific situation (e.g., at a restaurant, airport, or office).
+      The user's lines MUST contain blanks for these words: ${wordList}.
+      Format as JSON object with keys: 
+      - scenario: string (description of the scene)
+      - dialogue: array of { speaker: "Xiao Tong" | "User", text: string, pinyin?: string, translation?: string, blankWord?: string, hintImagePrompt?: string }
+      
+      For User lines with blanks, use "____" and specify the 'blankWord'. 
+      Also provide a 'hintImagePrompt' for each blank word to help the user remember it.`,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            scenario: { type: Type.STRING },
+            dialogue: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  speaker: { type: Type.STRING },
+                  text: { type: Type.STRING },
+                  pinyin: { type: Type.STRING },
+                  translation: { type: Type.STRING },
+                  blankWord: { type: Type.STRING },
+                  hintImagePrompt: { type: Type.STRING }
+                }
+              }
+            }
+          }
+        }
+      }
+    });
+    const data = JSON.parse(response.text || "{}");
+    
+    // Generate hint images for blanks
+    for (const line of data.dialogue) {
+      if (line.blankWord && line.hintImagePrompt) {
+        try {
+          const imgResponse = await ai.models.generateContent({
+            model: 'gemini-2.5-flash-image',
+            contents: {
+              parts: [{ text: line.hintImagePrompt }]
+            }
+          });
+          for (const part of imgResponse.candidates[0].content.parts) {
+            if (part.inlineData) {
+              line.hintImageUrl = `data:image/png;base64,${part.inlineData.data}`;
+            }
+          }
+        } catch (e) {
+          console.error("Failed to generate hint image", e);
+        }
+      }
+    }
+    return data;
+  },
+
+  async generateSpeech(text: string) {
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash-preview-tts",
+      contents: [{ parts: [{ text: `Say clearly: ${text}` }] }],
+      config: {
+        responseModalities: ["AUDIO" as any],
+        speechConfig: {
+          voiceConfig: {
+            prebuiltVoiceConfig: { voiceName: 'Kore' },
+          },
+        },
+      },
+    });
+    return response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
   },
 
   async getDialogueResponse(history: { role: string, text: string }[], userInput: string) {
