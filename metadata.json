@@ -1,0 +1,7 @@
+{
+  "name": "五洲汉语通 (SinoLink Global)",
+  "description": "An immersive Chinese language learning platform featuring AI-powered vocabulary recommendations, etymology deconstruction, and real-world image recognition.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}

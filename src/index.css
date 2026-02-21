@@ -1,0 +1,23 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-serif: "Noto Serif SC", serif;
+  --color-gugong-red: #8C2127;
+  --color-celadon-green: #355E3B;
+  --color-paper-white: #FDFBF7;
+}
+
+@layer base {
+  body {
+    @apply font-serif bg-gray-100 text-gray-900;
+  }
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
